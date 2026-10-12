@@ -1,0 +1,57 @@
+[
+  {
+    "assetId": "PST-HW-101",
+    "name": "MacBook Pro 14\" M3",
+    "category": "Hardware",
+    "assignedTo": "Divyansh Gupta",
+    "department": "Engineering",
+    "purchaseDate": "2024-01-15",
+    "warrantyExpiry": "2027-01-15",
+    "purchaseCost": 1999,
+    "status": "Assigned"
+  },
+  {
+    "assetId": "PST-HW-102",
+    "name": "Dell UltraSharp 27\" 4K",
+    "category": "Hardware",
+    "assignedTo": "Nishk Devdatta",
+    "department": "Product",
+    "purchaseDate": "2024-03-10",
+    "warrantyExpiry": "2026-11-01",
+    "purchaseCost": 550,
+    "status": "Assigned"
+  },
+  {
+    "assetId": "PST-HW-103",
+    "name": "Lenovo ThinkPad T14",
+    "category": "Hardware",
+    "assignedTo": "Unassigned",
+    "department": "IT Stock",
+    "purchaseDate": "2023-08-20",
+    "warrantyExpiry": "2026-10-25",
+    "purchaseCost": 1200,
+    "status": "In Repair"
+  },
+  {
+    "assetId": "PST-SW-201",
+    "name": "GitHub Enterprise",
+    "category": "Software",
+    "assignedTo": "Engineering Team (42/50 seats)",
+    "department": "Engineering",
+    "purchaseDate": "2025-01-01",
+    "warrantyExpiry": "2026-12-31",
+    "purchaseCost": 2100,
+    "status": "Active"
+  },
+  {
+    "assetId": "PST-SW-202",
+    "name": "Figma Enterprise",
+    "category": "Software",
+    "assignedTo": "Design Team (12/15 seats)",
+    "department": "Design",
+    "purchaseDate": "2025-02-15",
+    "warrantyExpiry": "2026-10-30",
+    "purchaseCost": 900,
+    "status": "Active"
+  }
+]
