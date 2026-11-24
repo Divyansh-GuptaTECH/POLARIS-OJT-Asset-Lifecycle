@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AssetLifecycle | PST_PD_025</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- PART A: KINETIC ENTRY PAGE -->
+<section id="intro">
+  <header class="ibar">
+    <div class="brand">AssetLifecycle <span class="pill mono">PST_PD_025</span></div>
+    <div class="ibtns">
+      <button class="btn" id="replay">&#8635; Replay Animation</button>
+      <button class="btn" data-enter="IT Head">Enter Workspace &rarr;</button>
+    </div>
+  </header>
+  <div class="ihero"><div class="icol">
+    <h1 id="hero" aria-label="Track Every Asset. Zero Blindspots.">
+      <span class="ln"><span class="w">Track</span>
+        <svg class="shape" id="pin" viewBox="0 0 100 100"><g class="mv" fill="#0ae448"><path id="pt" d="M50 50C50 14 84 10 86 34C88 52 66 50 50 50Z"/><use href="#pt" transform="rotate(90 50 50)"/><use href="#pt" transform="rotate(180 50 50)"/><use href="#pt" transform="rotate(270 50 50)"/></g></svg>
+        <span class="w">Every</span></span>
+      <span class="ln">
+        <svg class="shape" id="spark" viewBox="0 0 100 100"><g class="mv" fill="#ff8709"><polygon points="96,50 64.8,56.1 82.5,82.5 56.1,64.8 50,96 43.9,64.8 17.5,82.5 35.2,56.1 4,50 35.2,43.9 17.5,17.5 43.9,35.2 50,4 56.1,35.2 82.5,17.5 64.8,43.9"/></g></svg>
+        <span class="w">Asset</span>
+        <svg class="shape" id="coil" viewBox="0 0 100 100"><g class="mv" fill="none" stroke="#9d95ff" stroke-width="8" stroke-linecap="round"><path d="M22 10Q82 18 22 30Q82 38 22 50Q82 58 22 70Q82 78 22 90"/></g></svg></span>
+      <span class="ln"><span class="w">Zero</span>
+        <svg class="shape" id="bolt" viewBox="0 0 100 100"><g class="mv" fill="#0ae448"><polygon points="58,4 20,56 46,56 38,96 80,40 54,40"/></g></svg>
+        <span class="w">Blindspots.</span></span>
+    </h1>
+    <p class="sub">Hardware lifecycle, software seat compliance, and physical floor audits &mdash; unified in one local-first workspace.</p>
+    <div class="cta">
+      <button class="btn pri big" data-enter="IT Head">Enter as IT Department Head</button>
+      <button class="btn out big" data-enter="Auditor">Enter as Compliance Auditor</button>
+    </div>
+    </div>
+    <div class="scene" id="cubeI"></div>
+  </div>
+  <div class="strip" id="stripI"></div>
+</section>
+
+<!-- PART B: WORKSPACE -->
+<div id="app" hidden>
+  <!-- LIVELY ANIMATED IT OFFICE & SERVER ROOM BACKGROUND -->
+  <div id="officeBg" aria-hidden="true">
+    <canvas id="officeCanvas"></canvas>
+    <div class="office-vignette"></div>
+  </div>
+  <aside id="side">
+    <div class="brand"><span class="scene mark" id="cubeS"></span>AssetLifecycle</div>
+    <nav id="nav">
+      <button data-s="dash">Dashboard</button><button data-s="assets">Asset Register</button>
+      <button data-s="lics">Licenses</button><button data-s="audit">Floor Audit</button><button data-s="about">About / Help</button>
+    </nav>
+    <div class="live-dot">IT OPS FLOOR &middot; LIVE</div>
+    <button class="btn back" id="back">&larr; Back to Intro</button>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button class="btn" id="menu" aria-label="Toggle menu">&#9776;</button>
+      <h2 id="title">Dashboard</h2>
+      <div class="grow"></div>
+      <span id="rbadge" class="pill"></span>
+      <select id="role" aria-label="Active role"><option value="IT Head">IT Department Head</option><option value="Auditor">Compliance Auditor</option></select>
+      <button class="btn" id="reset">Reset Data</button>
+    </header>
+
+    <main>
+      <section id="dash" class="screen">
+        <div class="dhero">
+          <div><p class="mono mut" id="eyebrow"></p><h1 id="dh"></h1></div>
+          <div class="scene sm" id="cubeD"></div>
+        </div>
+        <div class="strip" id="stripD"></div>
+        <div class="kpis">
+          <div class="card"><p>Total Assets</p><div class="n mono" id="k1">0</div></div>
+          <div class="card"><p>Warranty / Repair Attention</p><div class="n mono warn" id="k2">0</div></div>
+          <div class="card"><p>License Issues</p><div class="n mono bad" id="k3">0</div></div>
+          <div class="card"><p>Audit Progress</p><div class="n mono" id="k4">0</div><div class="bar" id="k4bar"><i></i></div></div>
+        </div>
+        <div class="card dist"><h3>Lifecycle distribution</h3><div class="seg" id="seg"></div><ul class="legend" id="legend"></ul></div>
+        <div class="g2">
+          <div class="card"><h3>Needs Immediate Attention</h3><ul id="alerts" class="list"></ul></div>
+          <div class="card"><h3>Recent Activity</h3><ul id="feed" class="list"></ul></div>
+        </div>
+      </section>
+
+      <section id="assets" class="screen">
+        <div class="tools">
+          <input id="q" type="search" placeholder="Search tag, model, serial or owner" aria-label="Search assets">
+          <select id="fStage" aria-label="Stage filter"></select>
+          <select id="fWar" aria-label="Warranty filter"><option>All warranties</option><option>Active</option><option>Expiring</option><option>Expired</option></select>
+          <span id="acount" class="mut mono"></span>
+          <button class="btn pri w" id="add">+ Add New Asset</button>
+        </div>
+        <div class="card tbl"><table>
+          <thead><tr><th>Tag</th><th>Device</th><th>Serial</th><th>Owner</th><th>Warranty</th><th>Stage</th></tr></thead>
+          <tbody id="abody"></tbody></table></div>
+      </section>
+
+      <section id="lics" class="screen">
+        <div class="tools"><span class="mut">Seats in use against seats purchased</span><button class="btn pri w" id="addLic">+ Add License</button></div>
+        <div id="licGrid" class="lgrid"></div></section>
+
+      <section id="audit" class="screen">
+        <div class="card sum">
+          <div class="grow"><h3>Audit completion <span id="apct" class="mono"></span></h3><div class="bar" id="abar"><i></i></div>
+            <p id="acounts" class="mut mono"></p></div>
+          <button class="btn pri" id="csv">Export Audit CSV</button>
+        </div>
+        <div class="card" id="findings"></div>
+        <div class="card tbl"><table>
+          <thead><tr><th>Tag</th><th>Device</th><th>Expected owner</th><th>Status</th><th>Auditor notes</th><th>Result</th></tr></thead>
+          <tbody id="audBody"></tbody></table></div>
+      </section>
+    <section id="about" class="screen"><div class="g2">
+        <div class="card"><h3>Lifecycle stages</h3><p class="mut">In Stock to Assigned or Retired. Assigned to In Stock, In Repair or Retired. In Repair to Assigned or Retired. Retired to Disposed. Disposed is final. Every change is written to the asset history.</p></div>
+        <div class="card"><h3>License status rules</h3><p class="mut">Over-deployed when seats used exceed seats purchased. Expired when the date has passed. Expiring Soon within 30 days. Otherwise Compliant.</p></div>
+        <div class="card"><h3>Sample data</h3><p class="mut">30 assets, 10 employees and 6 licenses are synthetic and generated relative to today. Reset Data restores them.</p></div>
+        <div class="card"><h3>Demo limits</h3><p class="mut">Role checks and compliance rules run in the browser for demonstration only. This is not a legal or vendor-approved audit; a real system needs a trusted backend.</p></div>
+      </div></section>
+    </main>
+  </div>
+</div>
+
+<!-- DIALOGS -->
+<dialog id="dlg"><form id="aform" novalidate>
+  <h3>Add new asset</h3><ul id="aerr" class="errs" aria-live="polite"></ul>
+  <label>Asset tag<input name="tag" class="mono" placeholder="AST-1031"></label>
+  <label>Type<select name="type"><option>Laptop</option><option>Server</option><option>Monitor</option><option>Phone</option><option>Tablet</option><option>Network</option></select></label>
+  <label>Model<input name="model"></label>
+  <label>Serial number<input name="serial" class="mono"></label>
+  <label>Purchase date<input name="purchase" type="date"></label>
+  <label>Warranty end<input name="warranty" type="date"></label>
+  <label>Cost (INR)<input name="cost" type="number" min="0"></label>
+  <div class="row"><button type="button" class="btn" id="cancelAdd">Cancel</button><button class="btn pri">Add asset</button></div>
+</form></dialog>
+<dialog id="odlg"><div class="dbox">
+  <h3 id="otitle">Assign asset</h3><label>Employee<select id="osel"></select></label>
+  <div class="row"><button type="button" class="btn" id="ocancel">Cancel</button><button type="button" class="btn pri" id="ook">Assign</button></div>
+</div></dialog>
+
+<dialog id="ddlg"><div class="dbox"><div id="dbody"></div><div class="row"><button class="btn" id="dclose">Close</button></div></div></dialog>
+<dialog id="ldlg"><form id="lform" novalidate><h3>Add license</h3><ul id="lerr" class="errs" aria-live="polite"></ul>
+  <label>Product<input name="product"></label><label>Vendor<input name="vendor"></label>
+  <label>Seats purchased<input name="seats" type="number" min="1"></label><label>Expiry date<input name="expiry" type="date"></label>
+  <div class="row"><button type="button" class="btn" id="cancelLic">Cancel</button><button class="btn pri">Add license</button></div></form></dialog>
+<div id="toasts" aria-live="polite"></div>
+<script src="gsap.min.js"></script>
+<script>window.gsap || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"><\/script>');</script> <!-- local file first, CDN as fallback -->
+<script>if(!window.gsap){const G={};window.gsap=G;G.to=(t,v)=>{const el=typeof t==='string'?[...document.querySelectorAll(t)]:t instanceof Element?[t]:[];if(!el.length&&t&&'v' in t){t.v=v.v;v.onUpdate&&v.onUpdate()}el.forEach(e=>{if(v.width)e.style.width=v.width});v.onComplete&&setTimeout(v.onComplete,((v.delay||0)+(v.duration||0))*1000);return G};['from','set','fromTo','restart'].forEach(k=>G[k]=()=>G);G.timeline=()=>G}</script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
