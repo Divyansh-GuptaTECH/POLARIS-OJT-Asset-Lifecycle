@@ -1,37 +1,31 @@
-/* =====================================================
-   app.js - 1 Storage  2 Roles  3 Rules  4 Render  5 Actions  6 GSAP intro
-   ===================================================== */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/* ---------- 1. STORAGE: one versioned localStorage key ---------- */
 const KEY = 'assetlifecycle_v2';
 function load() { try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.v === 3) return d; } catch {} return seed(); }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { toast('Storage error: changes could not be saved.', 'bad'); } }
 let S = load();
-const logEv = m => { S.logs.unshift({ t: new Date().toISOString(), m }); S.logs = S.logs.slice(0, 40); }; // LIFO feed
+const logEv = m => { S.logs.unshift({ t: new Date().toISOString(), m }); S.logs = S.logs.slice(0, 40); };
 
-/* ---------- 2. ROLES ---------- */
 const isHead = () => S.role === 'IT Head';
-function guard() { // RoleGuard: every write action calls this first
+function guard() {
   if (isHead()) return true;
   toast('Auditors can record findings but cannot edit assets or licenses.', 'bad'); return false;
 }
 function applyRole() {
-  document.body.classList.toggle('auditor', !isHead()); // CSS hides every .w control
+  document.body.classList.toggle('auditor', !isHead());
   $('#role').value = S.role;
   const b = $('#rbadge'); b.textContent = isHead() ? 'Full write access' : 'Read-only register'; b.className = 'pill ' + (isHead() ? 'ok' : 'info');
   save();
 }
 
-/* ---------- 3. RULES ---------- */
 const pill = (t, c) => `<span class="pill ${c}">${t}</span>`;
 const stageC = { 'In Stock': 'info', Assigned: 'ok', 'In Repair': 'warn', Retired: 'mute', Disposed: 'mute' };
 const auditC = { Verified: 'ok', Pending: 'mute', Missing: 'bad', Mismatch: 'warn' };
+const SPINE_COLOR = { 'In Stock': '#60a5fa', Assigned: '#34d399', 'In Repair': '#fbbf24', Retired: '#94a3b8', Disposed: '#475569' };
 
-/* ---------- 4. RENDER ---------- */
-function count(el, to, suf = '') { // GSAP number count-up (starts from the previous value)
+function count(el, to, suf = '') {
   const o = { v: el._v || 0 }; el._v = to;
   gsap.to(o, { v: to, duration: 1, ease: 'power3.out', onUpdate: () => el.textContent = Math.round(o.v) + suf });
 }
@@ -42,14 +36,13 @@ function renderDash() {
   count($('#k1'), A.length); count($('#k2'), att.length); count($('#k3'), badL.length); count($('#k4'), done, '/' + A.length);
   gsap.to('#k4bar i', { width: pct + '%', duration: 1, ease: 'power3.out' });
 
-  const items = []; // auto-computed critical list; each item jumps to its screen
+  const items = [];
   A.filter(a => ['Missing', 'Mismatch'].includes(a.audit)).forEach(a => items.push({ c: a.audit === 'Missing' ? 'bad' : 'warn', go: 'audit', t: `${a.tag} ${a.model}: ${a.audit} in audit` }));
   badL.forEach(l => { const [s, c] = lStat(l); items.push({ c, go: 'lics', t: `${l.product}: ${s}, ${l.used}/${l.seats} seats` }); });
   att.forEach(a => items.push({ c: a.stage === 'In Repair' ? 'warn' : wStat(a)[1], go: 'assets', t: `${a.tag}: ${a.stage === 'In Repair' ? 'in repair' : 'warranty ' + wStat(a)[0].toLowerCase()}` }));
   items.sort((x, y) => (y.c === 'bad') - (x.c === 'bad'));
-  // role-aware headline, distribution bar and live ticker
   const pend = A.filter(a => a.audit === 'Pending').length, n = isHead() ? items.length : pend, cnt = s => A.filter(a => a.stage === s).length;
-  const SC = { 'In Stock': '#9d95ff', Assigned: '#0ae448', 'In Repair': '#ff8709', Retired: '#5b625e', Disposed: '#3a3f3c' };
+  const SC = { 'In Stock': '#60a5fa', Assigned: '#34d399', 'In Repair': '#fbbf24', Retired: '#94a3b8', Disposed: '#475569' };
   $('#eyebrow').textContent = `${new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} / ${isHead() ? 'IT Department Head' : 'Compliance Auditor'}`;
   $('#dh').innerHTML = isHead() ? `<em class="mono">${n}</em> things need your attention today.` : `<em class="mono">${n}</em> assets still to audit this cycle.`;
   $('#seg').innerHTML = STAGES.map(s => `<i style="width:${cnt(s) / A.length * 100}%;background:${SC[s]}"></i>`).join('');
@@ -62,14 +55,14 @@ function renderDash() {
 const F = { q: '', stage: 'All stages', war: 'All warranties' };
 function renderAssets() {
   const q = F.q.toLowerCase();
-  const rows = S.assets.filter(a => // live search + two dropdown filters in one .filter() pass
+  const rows = S.assets.filter(a =>
     (F.stage === 'All stages' || a.stage === F.stage) && (F.war === 'All warranties' || wStat(a)[0] === F.war) &&
     [a.tag, a.model, a.serial, a.owner].join(' ').toLowerCase().includes(q));
   $('#acount').textContent = `${rows.length} / ${S.assets.length}`;
   $('#abody').innerHTML = rows.length ? rows.map(a => {
     const [w, wc] = wStat(a);
     const st = isHead() ? `<select class="ssel" ${NEXT[a.stage].length ? '' : 'disabled title="Final state"'} data-id="${a.id}" aria-label="Stage for ${a.tag}">${[a.stage, ...NEXT[a.stage]].map(s => `<option ${s === a.stage ? 'selected' : ''}>${s}</option>`).join('')}</select>` : pill(a.stage, stageC[a.stage]);
-    return `<tr><td class="mono"><button class="lnk" data-detail="${a.id}">${a.tag}</button></td><td>${esc(a.model)}<small>${a.type}</small></td><td class="mono">${esc(a.serial)}</td>
+    return `<tr><td class="mono"><button type="button" class="book-tag" style="--spine:${SPINE_COLOR[a.stage] || '#34d399'}" data-detail="${a.id}" title="Open ${esc(a.tag)} lifecycle book">${esc(a.tag)}</button></td><td>${esc(a.model)}<small>${a.type}</small></td><td class="mono">${esc(a.serial)}</td>
       <td>${esc(a.owner) || '<span class="mut">Unassigned</span>'}</td><td>${pill(w, wc)}<small class="mono">${a.warrantyEnd}</small></td><td>${st}</td></tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">No assets match. <button class="btn" id="clr">Reset filters</button></td></tr>';
   labelCells();
@@ -102,7 +95,7 @@ function renderAudit() {
 const renderAll = () => { renderDash(); renderAssets(); renderLics(); renderAudit(); labelCells(); };
 
 const TITLES = { dash: 'Dashboard', assets: 'Asset Register', lics: 'Licenses', audit: 'Floor Audit', about: 'About / Help' };
-function show(s) { // screen switch + staggered card entrance
+function show(s) {
   $$('.screen').forEach(x => x.classList.toggle('on', x.id === s));
   $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
   $('#title').textContent = TITLES[s]; $('#side').classList.remove('open');
@@ -117,9 +110,8 @@ function toast(m, t = 'ok') {
   gsap.to(e, { opacity: 0, x: 40, duration: .3, delay: 3.2, onComplete: () => e.remove() });
 }
 
-/* ---------- 5. ACTIONS ---------- */
 function pickOwner(cur, ok, no, title = 'Assign asset') {
-  $('#otitle').textContent = title; // small dialog to choose the employee
+  $('#otitle').textContent = title;
   const d = $('#odlg'); $('#osel').innerHTML = EMPLOYEES.map(e => `<option ${e === cur ? 'selected' : ''}>${e}</option>`).join('');
   let done = false;
   const finish = isOk => { if (done) return; done = true; d.close(); isOk ? ok($('#osel').value) : no(); };
@@ -131,7 +123,7 @@ function pickOwner(cur, ok, no, title = 'Assign asset') {
 function changeStage(id, to) {
   if (!guard()) return renderAssets();
   const a = S.assets.find(x => x.id === id);
-  if (!NEXT[a.stage].includes(to)) { // deterministic validation
+  if (!NEXT[a.stage].includes(to)) {
     toast(a.stage === 'Disposed' ? 'Disposed assets are locked and cannot change stage.' : `Not allowed: ${a.stage} cannot move to ${to}.`, 'bad');
     return renderAssets();
   }
@@ -156,11 +148,17 @@ function exportCsv() {
 document.addEventListener('click', e => {
   const t = e.target, go = t.closest('[data-go]'), seat = t.closest('[data-seat]'), mk = t.closest('[data-mark]'), nav = t.closest('#nav button'), dt = t.closest('[data-detail]'), asg = t.closest('[data-assign]');
   if (nav) show(nav.dataset.s);
-  if (dt) openDetail(dt.dataset.detail);
+  if (dt) {
+    dt.classList.add('pull-out');
+    setTimeout(() => {
+      dt.classList.remove('pull-out');
+      openDetail(dt.dataset.detail);
+    }, 130);
+  }
   if (asg && guard()) assignSeat(asg.dataset.assign);
   if (go) show(go.dataset.go);
   if (mk) mark(mk.dataset.mark, mk.dataset.r);
-  if (seat && guard()) { // quick seat control: recalculates status, KPIs, saves, logs
+  if (seat && guard()) {
     const l = S.lics.find(x => x.id === seat.dataset.seat); l.used = Math.max(0, l.used + +seat.dataset.d); if (+seat.dataset.d < 0 && l.people?.length) l.people.pop();
     logEv(`${l.product}: seats in use now ${l.used} of ${l.seats}`); save(); renderAll();
     const [s, c] = lStat(l); toast(`${l.product}: ${l.used} of ${l.seats} seats (${s}).`, c);
@@ -182,7 +180,7 @@ $('#reset').onclick = () => { if (!confirm('Reset all demo data?')) return; cons
 $('#add').onclick = () => { if (guard()) { $('#aform').reset(); $('#aerr').innerHTML = ''; $('#dlg').showModal(); } };
 $('#cancelAdd').onclick = () => $('#dlg').close();
 
-$('#aform').onsubmit = e => { // add-asset form: validation, then save
+$('#aform').onsubmit = e => {
   e.preventDefault(); if (!guard()) return;
   const f = Object.fromEntries(new FormData(e.target)), tag = f.tag.trim().toUpperCase(), serial = f.serial.trim(), err = [];
   if (!tag) err.push('Asset tag is required.'); if (!f.model.trim()) err.push('Model is required.'); if (!serial) err.push('Serial number is required.');
@@ -196,16 +194,14 @@ $('#aform').onsubmit = e => { // add-asset form: validation, then save
   logEv(`${tag} registered (In Stock)`); save(); renderAll(); $('#dlg').close(); toast(`Asset ${tag} added to the register.`);
 };
 
-
-const calm = matchMedia('(prefers-reduced-motion: reduce)').matches; // skip idle motion if the user asked for less
-/* ---------- 5b. VISUALS: asset cube, marquee, card spotlight ---------- */
-const DEV = [ // one device per cube face: [type, tag, accent, svg paths, photo url]
-  ['Laptop', 'AST-1001', '#0ae448', '<rect x="22" y="28" width="56" height="36" rx="2"/><path d="M12 72h76l-6 6H18z"/>', 'assets/laptop.jpg'],
-  ['Server', 'AST-1004', '#ff8709', '<rect x="20" y="22" width="60" height="16" rx="2"/><rect x="20" y="42" width="60" height="16" rx="2"/><rect x="20" y="62" width="60" height="16" rx="2"/><path d="M28 30h18M28 50h18M28 70h18"/><circle cx="70" cy="30" r="1.5"/><circle cx="70" cy="50" r="1.5"/><circle cx="70" cy="70" r="1.5"/>', 'assets/server.jpg'],
-  ['Monitor', 'AST-1005', '#9d95ff', '<rect x="14" y="22" width="72" height="46" rx="3"/><path d="M50 68v10M36 80h28"/>', 'assets/monitor.jpg'],
-  ['Phone', 'AST-1006', '#0ae448', '<rect x="34" y="14" width="32" height="72" rx="7"/><path d="M46 21h8M46 80h8"/>', 'assets/phone.jpg'],
-  ['Tablet', 'AST-1007', '#ff8709', '<rect x="20" y="20" width="60" height="60" rx="6"/><circle cx="50" cy="73" r="2"/>', 'assets/tablet.jpg'],
-  ['Network', 'AST-1008', '#9d95ff', '<rect x="12" y="42" width="76" height="22" rx="2"/><path d="M22 53h4M32 53h4M42 53h4M52 53h4M62 53h4M72 53h4M30 42V28M70 42V28"/>', 'assets/network.jpg']
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DEV = [
+  ['Laptop', 'AST-1001', '#34d399', '<rect x="22" y="28" width="56" height="36" rx="2"/><path d="M12 72h76l-6 6H18z"/>', 'assets/laptop.jpg'],
+  ['Server', 'AST-1004', '#fbbf24', '<rect x="20" y="22" width="60" height="16" rx="2"/><rect x="20" y="42" width="60" height="16" rx="2"/><rect x="20" y="62" width="60" height="16" rx="2"/><path d="M28 30h18M28 50h18M28 70h18"/><circle cx="70" cy="30" r="1.5"/><circle cx="70" cy="50" r="1.5"/><circle cx="70" cy="70" r="1.5"/>', 'assets/server.jpg'],
+  ['Monitor', 'AST-1005', '#60a5fa', '<rect x="14" y="22" width="72" height="46" rx="3"/><path d="M50 68v10M36 80h28"/>', 'assets/monitor.jpg'],
+  ['Phone', 'AST-1006', '#34d399', '<rect x="34" y="14" width="32" height="72" rx="7"/><path d="M46 21h8M46 80h8"/>', 'assets/phone.jpg'],
+  ['Tablet', 'AST-1007', '#fbbf24', '<rect x="20" y="20" width="60" height="60" rx="6"/><circle cx="50" cy="73" r="2"/>', 'assets/tablet.jpg'],
+  ['Network', 'AST-1008', '#60a5fa', '<rect x="12" y="42" width="76" height="22" rx="2"/><path d="M22 53h4M32 53h4M42 53h4M52 53h4M62 53h4M72 53h4M30 42V28M70 42V28"/>', 'assets/network.jpg']
 ];
 const FACES = ['rotateY(0deg)', 'rotateY(90deg)', 'rotateY(180deg)', 'rotateY(-90deg)', 'rotateX(90deg)', 'rotateX(-90deg)'];
 function buildCube(host) {
@@ -213,43 +209,42 @@ function buildCube(host) {
   host.innerHTML = `<div class="tilt"><div class="cube">${DEV.map((d, i) => `<div class="face" style="--t:${FACES[i]};--c:${d[2]}">${d[4] ? `<img src="${d[4]}" alt="">` : `<svg viewBox="0 0 100 100">${d[3]}</svg>`}<i>${d[1]}</i><b>${d[0]}</b></div>`).join('')}</div></div>`;
   const tilt = $('.tilt', host), cube = $('.cube', host), area = host.closest('#intro, .dhero') || host;
   gsap.set(cube, { rotationX: -24, '--e': '0px' });
-  if (!calm) gsap.to(cube, { rotationY: 360, duration: 26, repeat: -1, ease: 'none' }); // constant spin
-  if (!calm && !host.classList.contains('mark')) gsap.to(host, { y: -10, duration: 3, yoyo: true, repeat: -1, ease: 'sine.inOut' }); // float
-  area.addEventListener('pointermove', e => { const r = area.getBoundingClientRect(); // follow the pointer
+  if (!calm) gsap.to(cube, { rotationY: 360, duration: 26, repeat: -1, ease: 'none' });
+  if (!calm && !host.classList.contains('mark')) gsap.to(host, { y: -10, duration: 3, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+  area.addEventListener('pointermove', e => { const r = area.getBoundingClientRect();
     gsap.to(tilt, { rotationY: ((e.clientX - r.left) / r.width - .5) * 36, rotationX: -((e.clientY - r.top) / r.height - .5) * 36, duration: .9, ease: 'power3.out' }); });
-  host.addEventListener('pointerenter', () => gsap.to(cube, { '--e': '34px', duration: .6, ease: 'power3.out' })); // faces break apart on hover
+  host.addEventListener('pointerenter', () => gsap.to(cube, { '--e': '34px', duration: .6, ease: 'power3.out' }));
   host.addEventListener('pointerleave', () => gsap.to(cube, { '--e': '0px', duration: .6, ease: 'power3.out' }));
 }
 function marquee(el, items) {
-  el.setAttribute('aria-hidden', 'true'); // endless ticker, rebuilt only when the text changes
+  el.setAttribute('aria-hidden', 'true');
   const key = items.join('|'); if (el._k === key) return; el._k = key; el._t?.kill?.();
   const row = `<span>${items.map(t => `<b>${esc(t)}</b>`).join('')}</span>`; el.innerHTML = `<div>${row}${row}</div>`;
   el._t = calm ? null : gsap.to(el.firstChild, { xPercent: -50, duration: items.length * 6, ease: 'none', repeat: -1 });
 }
-document.addEventListener('pointermove', e => { const c = e.target.closest?.('.card'); // soft spotlight follows the cursor on cards
+document.addEventListener('pointermove', e => { const c = e.target.closest?.('.card');
   if (c) { const r = c.getBoundingClientRect(); c.style.setProperty('--mx', e.clientX - r.left + 'px'); c.style.setProperty('--my', e.clientY - r.top + 'px'); } });
 buildCube($('#cubeI')); buildCube($('#cubeD')); buildCube($('#cubeS'));
 marquee($('#stripI'), ['Laptops', 'Servers', 'Monitors', 'Phones', 'Tablets', 'Network gear', 'Software licenses', 'Floor audits', 'Warranty alerts', 'Lifecycle history']);
 
-/* ---------- 6. GSAP ENTRY PAGE ---------- */
-$$('#hero .w').forEach(w => w.innerHTML = [...w.textContent].map(c => `<span class="c">${c}</span>`).join('')); // split into letters
-const master = gsap.timeline({ defaults: { ease: 'power4.out' } }) // master timeline: Replay restarts this
+$$('#hero .w').forEach(w => w.innerHTML = [...w.textContent].map(c => `<span class="c">${c}</span>`).join(''));
+const master = gsap.timeline({ defaults: { ease: 'power4.out' } })
   .from('.c', { y: 60, opacity: 0, duration: .9, stagger: .035 })
   .from('.shape', { scale: 0, rotation: -90, opacity: 0, duration: .8, stagger: .12, ease: 'back.out(1.7)' }, .2)
   .from('#cubeI', { scale: .5, opacity: 0, rotationY: -60, duration: 1.3 }, .3)
   .from('.sub, .cta .btn', { y: 20, opacity: 0, duration: .6, stagger: .08 }, '-=.4');
-const O = { transformOrigin: '50% 50%', repeat: -1 }; // continuous idle motion, one per shape
+const O = { transformOrigin: '50% 50%', repeat: -1 };
 if (!calm) gsap.to('#pin .mv', { ...O, rotation: 360, duration: 9, ease: 'none' });
 if (!calm) gsap.to('#spark .mv', { ...O, scale: 1.15, rotation: 45, duration: 1.6, yoyo: true, ease: 'sine.inOut' });
 if (!calm) gsap.to('#coil .mv', { transformOrigin: '50% 100%', repeat: -1, scaleY: .82, duration: .9, yoyo: true, ease: 'power1.inOut' });
 if (!calm) gsap.to('#bolt .mv', { ...O, skewX: -12, duration: 1.2, yoyo: true, ease: 'sine.inOut' });
-$$('.shape').forEach(s => { // hover burst
+$$('.shape').forEach(s => {
   s.onpointerenter = () => gsap.to(s, { scale: 1.3, rotation: '+=180', duration: .5, ease: 'back.out(2)', overwrite: 'auto' });
   s.onpointerleave = () => gsap.to(s, { scale: 1, duration: .4, ease: 'power3.out', overwrite: 'auto' });
 });
 $('#replay').onclick = () => master.restart();
 
-function enter(role) { // exit transition, then reveal the workspace
+function enter(role) {
   S.role = role; applyRole();
   gsap.to('#intro', { y: -30, opacity: 0, duration: .45, ease: 'power2.in', onComplete: () => {
     $('#intro').hidden = true; $('#app').hidden = false; show('dash'); gsap.from('#side, .top', { opacity: 0, y: -10, duration: .4, stagger: .08 }); } });
@@ -257,15 +252,77 @@ function enter(role) { // exit transition, then reveal the workspace
 $$('[data-enter]').forEach(b => b.onclick = () => enter(b.dataset.enter));
 $('#back').onclick = () => { $('#app').hidden = true; $('#intro').hidden = false; gsap.set('#intro', { y: 0, opacity: 1 }); master.restart(); };
 
-/* ---------- 5c. DETAIL, LICENSE FORM, SEAT ASSIGNMENT ---------- */
-function openDetail(id) { // asset detail with history timeline
+function openDetail(id) {
   const a = S.assets.find(x => x.id === id), [w] = wStat(a);
-  $('#dbody').innerHTML = `<h3 class="mono">${a.tag}</h3><p class="mut">${esc(a.model)} (${a.type})</p><dl class="dl">${[['Serial', a.serial], ['Owner', a.owner || 'Unassigned'], ['Stage', a.stage],
-    ['Purchased', a.purchase], ['Cost', 'INR ' + a.cost.toLocaleString('en-IN')], ['Warranty end', `${a.warrantyEnd} (${w})`], ['Audit', a.audit]].map(([k, v]) => `<dt>${k}</dt><dd class="mono">${esc(v)}</dd>`).join('')}</dl>
-    <h3>History</h3><ol class="tl">${a.hist.map(h => `<li><time class="mono">${new Date(h.t).toLocaleDateString()}</time>${esc(h.m)}</li>`).join('')}</ol>`;
-  $('#ddlg').showModal();
+  const spineColor = SPINE_COLOR[a.stage] || '#34d399';
+  const specs = [
+    ['Serial', a.serial],
+    ['Owner', a.owner || 'Unassigned'],
+    ['Stage', a.stage],
+    ['Purchased', a.purchase],
+    ['Cost', 'INR ' + a.cost.toLocaleString('en-IN')],
+    ['Warranty', `${a.warrantyEnd} (${w})`],
+    ['Audit', a.audit]
+  ].map(([k, v]) => `<dt>${k}</dt><dd class="mono">${esc(v)}</dd>`).join('');
+  const histHtml = a.hist.map(h => `<li><time class="mono">${new Date(h.t).toLocaleDateString()}</time><span>${esc(h.m)}</span></li>`).join('');
+
+  $('#dbody').innerHTML = `
+    <div class="book-stage">
+      <div class="open-book" id="assetBook" style="--spine:${spineColor}">
+        <div class="book-page book-right">
+          <div class="page-head">
+            <span class="mono">LIFECYCLE LOG</span>
+            <span class="mono">p. 02</span>
+          </div>
+          <h4 class="page-title">History Timeline</h4>
+          <ol class="book-tl">${histHtml}</ol>
+          <div class="page-foot mono">${a.hist.length} recorded event${a.hist.length === 1 ? '' : 's'}</div>
+        </div>
+        <div class="book-cover">
+          <div class="cover-front">
+            <div class="cover-spine"></div>
+            <div class="cover-body">
+              <span class="cover-badge mono">${esc(a.type)}</span>
+              <h3 class="cover-tag mono">${esc(a.tag)}</h3>
+              <p class="cover-model">${esc(a.model)}</p>
+              <span class="cover-stage mono">${esc(a.stage)}</span>
+            </div>
+          </div>
+          <div class="cover-back book-page book-left">
+            <div class="page-head">
+              <span class="mono">ASSET DOSSIER</span>
+              <span class="mono">p. 01</span>
+            </div>
+            <h3 class="book-tag-title mono">${esc(a.tag)}</h3>
+            <p class="book-sub">${esc(a.model)} &middot; ${esc(a.type)}</p>
+            <dl class="book-dl">${specs}</dl>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const dlg = $('#ddlg');
+  dlg.showModal();
+  const book = $('#assetBook');
+  if (calm) {
+    book.classList.add('is-open');
+  } else {
+    requestAnimationFrame(() => requestAnimationFrame(() => book.classList.add('is-open')));
+  }
 }
-function assignSeat(id) { // assign a license seat to an employee
+
+function closeDetailBook() {
+  const dlg = $('#ddlg');
+  const book = $('#assetBook');
+  if (book && book.classList.contains('is-open') && !calm) {
+    book.classList.remove('is-open');
+    setTimeout(() => dlg.close(), 420);
+  } else {
+    dlg.close();
+  }
+}
+
+function assignSeat(id) {
   const l = S.lics.find(x => x.id === id); l.people = l.people || [];
   pickOwner('', o => {
     if (l.people.includes(o)) return toast(`${o} already holds a ${l.product} seat.`, 'warn');
@@ -273,10 +330,12 @@ function assignSeat(id) { // assign a license seat to an employee
     const [s, c] = lStat(l); toast(`Seat assigned to ${o}. ${l.used} of ${l.seats} seats (${s}).`, c);
   }, () => {}, 'Assign seat');
 }
-const labelCells = () => $$('table').forEach(t => { const h = [...t.tHead.rows[0].cells].map(c => c.textContent); // labels for the phone card layout
+const labelCells = () => $$('table').forEach(t => { const h = [...t.tHead.rows[0].cells].map(c => c.textContent);
   [...t.tBodies[0].rows].forEach(r => [...r.cells].forEach((c, i) => c.dataset.label = h[i] || '')); });
 $('#addLic').onclick = () => { if (guard()) { $('#lform').reset(); $('#lerr').innerHTML = ''; $('#ldlg').showModal(); } };
-$('#cancelLic').onclick = () => $('#ldlg').close(); $('#dclose').onclick = () => $('#ddlg').close();
+$('#cancelLic').onclick = () => $('#ldlg').close();
+$('#dclose').onclick = closeDetailBook;
+$('#ddlg').oncancel = e => { e.preventDefault(); closeDetailBook(); };
 $('#lform').onsubmit = e => {
   e.preventDefault(); if (!guard()) return;
   const f = Object.fromEntries(new FormData(e.target)), p = f.product.trim(), err = [], seats = +f.seats;
@@ -288,26 +347,22 @@ $('#lform').onsubmit = e => {
   logEv(`${p} license added (${seats} seats)`); save(); renderAll(); $('#ldlg').close(); toast(`License ${p} added.`);
 };
 
-/* ---------- START ---------- */
 $('#fStage').innerHTML = ['All stages', ...STAGES].map(s => `<option>${s}</option>`).join('');
 applyRole(); renderAll();
 
-
-/* ---------- 8. LIVELY ANIMATED IT OFFICE & SERVER ROOM BACKGROUND ---------- */
 (function initLiveOffice() {
   const cv = document.getElementById('officeCanvas');
   if (!cv) return;
   const ctx = cv.getContext('2d');
   let W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  // Server racks inside the glass server room (right-back half)
   const racks = [
     { rx: 0.56, rw: 0.085, leds: [] },
     { rx: 0.66, rw: 0.085, leds: [] },
     { rx: 0.76, rw: 0.085, leds: [] },
     { rx: 0.86, rw: 0.085, leds: [] }
   ];
-  const ledColors = ['#0ae448', '#0ae448', '#0ae448', '#38bdf8', '#38bdf8', '#ff8709'];
+  const ledColors = ['#34d399', '#34d399', '#34d399', '#60a5fa', '#60a5fa', '#fbbf24'];
   racks.forEach((rk, ri) => {
     for (let row = 0; row < 20; row++) {
       for (let col = 0; col < 5; col++) {
@@ -323,29 +378,25 @@ applyRole(); renderAll();
     }
   });
 
-  // Workstations (IT Engineers working at glowing multi-monitor desks)
   const desks = [
     { x: 0.34, y: 0.62, s: 0.88, mon: 2, phase: 0.4, typing: 1.2 },
     { x: 0.54, y: 0.65, s: 1.0,  mon: 2, phase: 1.9, typing: 0.9 },
     { x: 0.78, y: 0.67, s: 1.08, mon: 2, phase: 3.5, typing: 1.5 }
   ];
 
-  // Silhouette technician occasionally walking behind the glass corridor
   const walker = { x: 0.45, dir: 1, speed: 0.018, pause: 0 };
 
-  // Subtle floating dust / ambient light motes
   const motes = Array.from({ length: 34 }, () => ({
     x: Math.random(), y: Math.random(),
     r: 0.8 + Math.random() * 1.8,
     vx: (Math.random() - 0.5) * 0.008,
     vy: -0.004 - Math.random() * 0.009,
-    a: 0.1 + Math.random() * 0.25
+    a: 0.1 + Math.random() * 0.22
   }));
 
-  // Data light pulses traveling along ceiling cable trays
   const pulses = Array.from({ length: 7 }, (_, i) => ({
     t: Math.random(), speed: 0.08 + Math.random() * 0.12, lane: i % 3,
-    c: i % 3 === 0 ? '#0ae448' : i % 3 === 1 ? '#38bdf8' : '#ff8709'
+    c: i % 3 === 0 ? '#34d399' : i % 3 === 1 ? '#60a5fa' : '#fbbf24'
   }));
 
   function resize() {
@@ -358,7 +409,6 @@ applyRole(); renderAll();
   resize();
   window.addEventListener('resize', resize);
 
-  // Subtle depth parallax with pointer
   if (!calm) {
     window.addEventListener('pointermove', e => {
       const appEl = document.getElementById('app');
@@ -375,7 +425,6 @@ applyRole(); renderAll();
     last = now;
     const t = now * 0.001;
 
-    // Only animate while workspace is visible
     const appEl = document.getElementById('app');
     if (appEl && appEl.hidden) {
       requestAnimationFrame(draw);
@@ -384,98 +433,88 @@ applyRole(); renderAll();
 
     ctx.clearRect(0, 0, W, H);
 
-    // 1. ARCHITECTURAL OFFICE ROOM BACKDROP (Ceiling, back wall, perspective floor)
     const wallY = H * 0.62;
     const ceilGrad = ctx.createLinearGradient(0, 0, 0, wallY);
-    ceilGrad.addColorStop(0, '#0b1012');
-    ceilGrad.addColorStop(0.45, '#131d21');
-    ceilGrad.addColorStop(1, '#0e1518');
+    ceilGrad.addColorStop(0, 'rgba(15, 21, 36, 0.55)');
+    ceilGrad.addColorStop(0.45, 'rgba(22, 34, 54, 0.42)');
+    ceilGrad.addColorStop(1, 'rgba(17, 24, 39, 0.58)');
     ctx.fillStyle = ceilGrad;
     ctx.fillRect(0, 0, W, wallY);
 
     const floorGrad = ctx.createLinearGradient(0, wallY, 0, H);
-    floorGrad.addColorStop(0, '#0d1315');
-    floorGrad.addColorStop(1, '#07090a');
+    floorGrad.addColorStop(0, 'rgba(15, 22, 35, 0.62)');
+    floorGrad.addColorStop(1, 'rgba(10, 15, 25, 0.78)');
     ctx.fillStyle = floorGrad;
     ctx.fillRect(0, wallY, W, H - wallY);
 
-    // Subtle architectural ceiling grid & recessed LED light strips
-    ctx.strokeStyle = 'rgba(180, 220, 235, 0.045)';
+    ctx.strokeStyle = 'rgba(148, 197, 255, 0.055)';
     ctx.lineWidth = 1;
     for (let i = 0; i < 9; i++) {
       const x = W * (0.12 + i * 0.11);
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(W * 0.5 + (x - W * 0.5) * 0.65, H * 0.16); ctx.stroke();
     }
 
-    // Glowing overhead office light fixtures + soft volumetric down-beams
     const lights = [0.28, 0.52, 0.78];
     lights.forEach((lx, i) => {
       const cx = W * lx;
       const flicker = 0.94 + Math.sin(t * 1.4 + i * 2) * 0.06;
       const beam = ctx.createRadialGradient(cx, H * 0.06, 8, cx, H * 0.28, W * 0.22);
-      beam.addColorStop(0, `rgba(140, 215, 235, ${0.13 * flicker})`);
-      beam.addColorStop(0.5, `rgba(10, 228, 72, ${0.03 * flicker})`);
+      beam.addColorStop(0, `rgba(96, 165, 250, ${0.14 * flicker})`);
+      beam.addColorStop(0.5, `rgba(52, 211, 153, ${0.04 * flicker})`);
       beam.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = beam;
       ctx.fillRect(cx - W * 0.25, 0, W * 0.5, H * 0.55);
 
-      ctx.fillStyle = `rgba(210, 240, 248, ${0.42 * flicker})`;
+      ctx.fillStyle = `rgba(219, 234, 254, ${0.42 * flicker})`;
       ctx.fillRect(cx - 52, H * 0.04, 104, 3);
     });
 
-    // 2. GLASS-WALLED SERVER ROOM (Right & Center-Right)
     const glassX = W * 0.51;
     const glassTop = H * 0.12;
     const glassH = wallY - glassTop + H * 0.04;
 
-    // Server room interior depth glow
     const srGlow = ctx.createRadialGradient(W * 0.75, H * 0.36, 20, W * 0.75, H * 0.36, W * 0.32);
-    srGlow.addColorStop(0, 'rgba(10, 228, 72, 0.11)');
-    srGlow.addColorStop(0.5, 'rgba(56, 189, 248, 0.07)');
+    srGlow.addColorStop(0, 'rgba(52, 211, 153, 0.11)');
+    srGlow.addColorStop(0.5, 'rgba(96, 165, 250, 0.08)');
     srGlow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = srGlow;
     ctx.fillRect(glassX, glassTop, W - glassX, glassH);
 
-    // Draw Server Racks + Live Blinking LEDs
     racks.forEach(rk => {
       const x = W * rk.rx, w = W * rk.rw;
       const y = H * 0.16, h = wallY - y + H * 0.03;
 
-      // Rack chassis
-      ctx.fillStyle = 'rgba(10, 14, 16, 0.92)';
+      ctx.fillStyle = 'rgba(15, 22, 36, 0.85)';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = 'rgba(160, 210, 225, 0.12)';
+      ctx.strokeStyle = 'rgba(148, 197, 255, 0.14)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, w, h);
 
-      // Rack horizontal blade dividers
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.strokeStyle = 'rgba(241, 245, 249, 0.045)';
       for (let u = 1; u < 20; u++) {
         const uy = y + (h / 20) * u;
         ctx.beginPath(); ctx.moveTo(x + 3, uy); ctx.lineTo(x + w - 3, uy); ctx.stroke();
       }
 
-      // Live blinking server LEDs
       rk.leds.forEach(ld => {
         const ly = y + (h / 20) * (ld.row + 0.5);
         const lx = x + 8 + (w - 16) * (ld.col / 4.2);
-        let alpha = 0.75;
+        let alpha = 0.72;
         if (ld.blink && !calm) {
           const wave = Math.sin(t * ld.speed + ld.phase);
-          alpha = wave > 0.15 ? 0.92 : 0.16;
+          alpha = wave > 0.15 ? 0.88 : 0.16;
         }
         ctx.fillStyle = ld.c;
         ctx.globalAlpha = alpha;
         ctx.fillRect(lx, ly - 1.2, 3.2, 2.2);
         if (alpha > 0.7) {
-          ctx.globalAlpha = 0.22;
+          ctx.globalAlpha = 0.2;
           ctx.fillRect(lx - 2, ly - 3, 7.2, 5.8);
         }
       });
       ctx.globalAlpha = 1;
     });
 
-    // Overhead fiber-optic / data pulses moving across server room ceiling
     if (!calm) {
       pulses.forEach(p => {
         p.t = (p.t + p.speed * dt) % 1;
@@ -485,14 +524,13 @@ applyRole(); renderAll();
         g.addColorStop(0, 'rgba(0,0,0,0)');
         g.addColorStop(1, p.c);
         ctx.strokeStyle = g;
-        ctx.globalAlpha = 0.55;
+        ctx.globalAlpha = 0.52;
         ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.moveTo(px - 36, py); ctx.lineTo(px + 8, py); ctx.stroke();
       });
       ctx.globalAlpha = 1;
     }
 
-    // Walking technician silhouette behind the glass partition
     if (!calm) {
       if (walker.pause > 0) {
         walker.pause -= dt;
@@ -504,43 +542,38 @@ applyRole(); renderAll();
       const wx = W * walker.x;
       const wy = wallY + H * 0.02;
       const bob = walker.pause > 0 ? 0 : Math.abs(Math.sin(t * 5.2)) * 3;
-      ctx.fillStyle = 'rgba(18, 28, 32, 0.58)';
-      // Head + torso silhouette
+      ctx.fillStyle = 'rgba(20, 32, 48, 0.56)';
       ctx.beginPath(); ctx.arc(wx, wy - 96 - bob, 11, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath();
       ctx.roundRect(wx - 15, wy - 82 - bob, 30, 52, 8);
       ctx.fill();
-      // Subtle glowing tablet in hand
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.fillStyle = 'rgba(96, 165, 250, 0.45)';
       ctx.fillRect(wx + (walker.dir > 0 ? 8 : -18), wy - 62 - bob, 10, 7);
     }
 
-    // Glass partition mullions & diagonal soft glass sheen
     const sheen = ctx.createLinearGradient(glassX, glassTop, W, glassTop + glassH);
-    sheen.addColorStop(0, 'rgba(190, 230, 245, 0.055)');
-    sheen.addColorStop(0.45, 'rgba(190, 230, 245, 0.015)');
-    sheen.addColorStop(0.52, 'rgba(190, 230, 245, 0.06)');
-    sheen.addColorStop(1, 'rgba(190, 230, 245, 0.01)');
+    sheen.addColorStop(0, 'rgba(191, 219, 254, 0.055)');
+    sheen.addColorStop(0.45, 'rgba(191, 219, 254, 0.015)');
+    sheen.addColorStop(0.52, 'rgba(191, 219, 254, 0.06)');
+    sheen.addColorStop(1, 'rgba(191, 219, 254, 0.01)');
     ctx.fillStyle = sheen;
     ctx.fillRect(glassX, glassTop, W - glassX, glassH);
 
-    ctx.strokeStyle = 'rgba(160, 200, 215, 0.16)';
+    ctx.strokeStyle = 'rgba(148, 197, 255, 0.16)';
     ctx.lineWidth = 2;
     ctx.strokeRect(glassX, glassTop, W - glassX, glassH);
     [0.64, 0.77, 0.90].forEach(gx => {
       ctx.beginPath(); ctx.moveTo(W * gx, glassTop); ctx.lineTo(W * gx, glassTop + glassH); ctx.stroke();
     });
 
-    // 3. LEFT WALL STATUS MONITOR (Wall-mounted NOC screen)
     const nocX = W * 0.25, nocY = H * 0.24, nocW = W * 0.18, nocH = H * 0.16;
-    ctx.fillStyle = 'rgba(10, 16, 18, 0.88)';
+    ctx.fillStyle = 'rgba(15, 22, 36, 0.82)';
     ctx.fillRect(nocX, nocY, nocW, nocH);
-    ctx.strokeStyle = 'rgba(10, 228, 72, 0.25)';
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.25)';
     ctx.lineWidth = 1.2;
     ctx.strokeRect(nocX, nocY, nocW, nocH);
 
-    // Animated live telemetry sine wave inside NOC wall screen
-    ctx.strokeStyle = 'rgba(10, 228, 72, 0.55)';
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.55)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let px = 0; px < nocW - 16; px += 4) {
@@ -549,70 +582,60 @@ applyRole(); renderAll();
     }
     ctx.stroke();
 
-    // Small animated bars inside NOC screen
     for (let b = 0; b < 6; b++) {
       const bh = 8 + Math.abs(Math.sin(t * 1.8 + b * 1.1)) * (nocH * 0.28);
-      ctx.fillStyle = b === 4 ? 'rgba(255, 135, 9, 0.45)' : 'rgba(56, 189, 248, 0.4)';
+      ctx.fillStyle = b === 4 ? 'rgba(251, 191, 36, 0.45)' : 'rgba(96, 165, 250, 0.42)';
       ctx.fillRect(nocX + 10 + b * (nocW * 0.13), nocY + nocH - 8 - bh, nocW * 0.08, bh);
     }
 
-    // 4. IT ENGINEER WORKSTATIONS (Desks + Dual Monitors + Seated Silhouettes)
     desks.forEach((d, idx) => {
       const dx = W * d.x, dy = H * d.y, sc = d.s;
       const deskW = 190 * sc;
 
-      // Desk surface
-      ctx.fillStyle = 'rgba(18, 24, 26, 0.92)';
+      ctx.fillStyle = 'rgba(22, 30, 46, 0.9)';
       ctx.fillRect(dx - deskW / 2, dy, deskW, 10 * sc);
-      ctx.fillStyle = 'rgba(12, 16, 18, 0.95)';
+      ctx.fillStyle = 'rgba(15, 21, 34, 0.94)';
       ctx.fillRect(dx - deskW / 2 + 12, dy + 10 * sc, 7 * sc, H - dy);
       ctx.fillRect(dx + deskW / 2 - 19, dy + 10 * sc, 7 * sc, H - dy);
 
-      // Dual monitors with subtle live code/activity glow
       for (let m = 0; m < d.mon; m++) {
         const mw = 64 * sc, mh = 38 * sc;
         const mx = dx + (m === 0 ? -mw - 4 : 4);
         const my = dy - mh - 12 * sc;
 
-        // Ambient screen glow halo
         const glow = ctx.createRadialGradient(mx + mw / 2, my + mh / 2, 4, mx + mw / 2, my + mh / 2, 75 * sc);
-        glow.addColorStop(0, m === 0 ? 'rgba(56, 189, 248, 0.16)' : 'rgba(10, 228, 72, 0.13)');
+        glow.addColorStop(0, m === 0 ? 'rgba(96, 165, 250, 0.16)' : 'rgba(52, 211, 153, 0.13)');
         glow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = glow;
         ctx.fillRect(mx - 45, my - 35, mw + 90, mh + 75);
 
-        // Monitor stand & frame
-        ctx.fillStyle = '#0d1214';
+        ctx.fillStyle = '#0f172a';
         ctx.fillRect(mx + mw / 2 - 3, my + mh, 6, 12 * sc);
         ctx.fillRect(mx, my, mw, mh);
-        ctx.strokeStyle = 'rgba(180, 225, 240, 0.22)';
+        ctx.strokeStyle = 'rgba(191, 219, 254, 0.22)';
         ctx.lineWidth = 1;
         ctx.strokeRect(mx, my, mw, mh);
 
-        // Live scrolling UI/code lines on monitor
         const scroll = calm ? 0 : (t * 14 + idx * 11 + m * 7) % 12;
         for (let ln = 0; ln < 5; ln++) {
           const ly = my + 6 + ((ln * 6 + scroll) % (mh - 10));
           const lw = (18 + ((ln * 17 + m * 9 + idx * 5) % 34)) * sc;
-          ctx.fillStyle = ln === 2 ? 'rgba(10, 228, 72, 0.45)' : 'rgba(148, 210, 235, 0.32)';
+          ctx.fillStyle = ln === 2 ? 'rgba(52, 211, 153, 0.45)' : 'rgba(147, 197, 253, 0.34)';
           ctx.fillRect(mx + 6, ly, Math.min(lw, mw - 12), 2);
         }
       }
 
-      // Seated IT Engineer silhouette with gentle breathing & typing motion
       const sway = calm ? 0 : Math.sin(t * 1.1 + d.phase) * 2.5;
       const headTilt = calm ? 0 : Math.sin(t * 0.7 + d.phase) * 1.8;
       const px = dx + 14 * sc + sway;
       const py = dy + 4 * sc;
 
-      // Office chair back
-      ctx.fillStyle = 'rgba(10, 13, 14, 0.96)';
+      ctx.fillStyle = 'rgba(12, 18, 30, 0.94)';
       ctx.beginPath();
       ctx.roundRect(px - 22 * sc, py - 10 * sc, 44 * sc, 56 * sc, 10);
       ctx.fill();
 
-      // Shoulders & head
-      ctx.fillStyle = 'rgba(16, 22, 25, 0.96)';
+      ctx.fillStyle = 'rgba(19, 28, 44, 0.94)';
       ctx.beginPath();
       ctx.ellipse(px, py - 8 * sc, 24 * sc, 18 * sc, 0, Math.PI, 0);
       ctx.fill();
@@ -620,21 +643,19 @@ applyRole(); renderAll();
       ctx.arc(px + headTilt, py - 34 * sc, 12.5 * sc, 0, Math.PI * 2);
       ctx.fill();
 
-      // Soft rim light on engineer's shoulders from monitor glow
-      ctx.strokeStyle = 'rgba(120, 215, 240, 0.22)';
+      ctx.strokeStyle = 'rgba(147, 197, 253, 0.24)';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.arc(px + headTilt, py - 34 * sc, 12.5 * sc, Math.PI * 1.1, Math.PI * 1.9);
       ctx.stroke();
     });
 
-    // 5. SUBTLE FLOATING AMBIENT DUST / DATA MOTES
     motes.forEach(m => {
       if (!calm) {
         m.x = (m.x + m.vx * dt + 1) % 1;
         m.y = (m.y + m.vy * dt + 1) % 1;
       }
-      ctx.fillStyle = `rgba(200, 245, 225, ${m.a})`;
+      ctx.fillStyle = `rgba(191, 219, 254, ${m.a})`;
       ctx.beginPath();
       ctx.arc(m.x * W, m.y * H, m.r, 0, Math.PI * 2);
       ctx.fill();
